@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Globo 3D com Street View</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    /* Estilo para o mini mapa (inicialmente invisível) */
+    #mapa-cobertura {
+      display: none; /* começa oculto */
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 300px;
+      height: 300px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      border: 2px solid rgba(255,255,255,0.5);
+      z-index: 200;
+      background: rgba(0,0,0,0.7);
+      transition: all 0.3s ease;
+    }
+    #mapa-cobertura.visivel {
+      display: block;
+    }
+  </style>
+</head>
+
+<!-- ========== CHAT FLUTUANTE ========== -->
+<style>
+.chat-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 350px;
+  max-width: 90vw;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-header {
+  background: #1e88e5;
+  color: white;
+  padding: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+.chat-messages {
+  height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #1e1e1e;
+}
+.message {
+  max-width: 80%;
+  padding: 8px 12px;
+  border-radius: 18px;
+  font-size: 14px;
+  word-wrap: break-word;
+}
+.user-message {
+  background: #1e88e5;
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+.luna-message {
+  background: #424242;
+  color: white;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+.chat-input-area {
+  display: flex;
+  padding: 10px;
+  background: #2c2c2c;
+  gap: 8px;
+}
+.chat-input-area input {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 20px;
+  outline: none;
+}
+.chat-input-area button {
+  background: #1e88e5;
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.mic-button {
+  background: #d32f2f;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.mode-selector {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  background: #2c2c2c;
+  padding: 5px;
+}
+.mode-btn {
+  background: #555;
+  border: none;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.mode-btn.active {
+  background: #1e88e5;
+}
+</style>
+
+<div class="chat-container" id="chatContainer">
+  <div class="chat-header">
+    <span>🌙 Luna Assistente</span>
+    <span id="toggleChat">−</span>
+  </div>
+  <div id="chatBody">
+    <div class="chat-messages" id="chatMessages">
+      <div class="message luna-message">Olá! Sou a Luna. Como posso ajudar?</div>
+    </div>
+    <div class="mode-selector">
+      <button class="mode-btn" data-mode="text">📝 Texto</button>
+      <button class="mode-btn" data-mode="voice">🎤 Voz</button>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
+      <button id="sendBtn">Enviar</button>
+      <button id="micBtn" class="mic-button" title="Falar">🎙️</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== CHAT ==========
+const messagesDiv = document.getElementById('chatMessages');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const micBtn = document.getElementById('micBtn');
+const modeBtns = document.querySelectorAll('.mode-btn');
+const toggleChat = document.getElementById('toggleChat');
+const chatBody = document.getElementById('chatBody');
+let currentMode = 'text';
+
+function addMessage(text, isUser) {
+  const div = document.createElement('div');
+  div.className = `message ${isUser ? 'user-message' : 'luna-message'}`;
+  div.innerText = text;
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+async function sendMessage(message) {
+  if (!message.trim()) return;
+  addMessage(message, true);
+  messageInput.value = '';
+  try {
+    const response = await fetch('http://localhost:5000/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mensagem: message })
+    });
+    const data = await response.json();
+    if (data.resposta) {
+      addMessage(data.resposta, false);
+      
+      // Toca o áudio da ElevenLabs se existir
+      if (data.audio) {
+        const audioBlob = new Blob([Uint8Array.from(atob(data.audio), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+      }
+    } else {
+      addMessage('❌ Erro: resposta vazia.', false);
+    }
+  } catch (err) {
+    console.error(err);
+    addMessage('❌ Erro de conexão com o servidor.', false);
+  }
+}
+
+sendBtn.addEventListener('click', () => sendMessage(messageInput.value));
+messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
+
+// Reconhecimento de voz
+let recognition = null;
+if ('webkitSpeechRecognition' in window) {
+  recognition = new webkitSpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    sendMessage(transcript);
+  };
+  micBtn.addEventListener('click', () => recognition.start());
+} else {
+  micBtn.disabled = true;
+  micBtn.title = 'Não suportado';
+}
+
+modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    if (currentMode === 'voice') {
+      messageInput.disabled = true;
+      sendBtn.disabled = true;
+    } else {
+      messageInput.disabled = false;
+      sendBtn.disabled = false;
+    }
+  });
+});
+document.querySelector('.mode-btn[data-mode="text"]').classList.add('active');
+
+toggleChat.addEventListener('click', () => {
+  if (chatBody.style.display === 'none') {
+    chatBody.style.display = 'block';
+    toggleChat.innerText = '−';
+  } else {
+    chatBody.style.display = 'none';
+    toggleChat.innerText = '+';
+  }
+});
+</script>
+<body>
+  <!-- Seu globo 3D será inserido aqui pelo Three.js -->
+  
+  <!-- Mini mapa com linhas azuis de cobertura Street View -->
+  <div id="mapa-cobertura">
+    <div id="mini-mapa" style="width: 100%; height: 100%;"></div>
+    <button id="fechar-cobertura" style="
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      z-index: 10;
+    ">X</button>
+  </div>
+
+  <!-- API do Google Maps (carrega antes do seu código) -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCSP5XJE4ukwdTR1ca-QILJ5xZsThikzQc"></script>
+
+  <!-- Seu código principal (Three.js + lógica) -->
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
