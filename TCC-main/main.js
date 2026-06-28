@@ -64,6 +64,7 @@ renderer.domElement.style.top = "0";
 renderer.domElement.style.left = "0";
 document.body.appendChild(renderer.domElement);
 
+
 // =========================
 // TERRA
 // =========================
@@ -100,6 +101,26 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
+
+const bgTexture = textureLoader.load(
+    '/textures/fundo.jpg',
+    () => {
+        // Sucesso: define o fundo
+        scene.background = bgTexture;
+        console.log('✅ Fundo carregado com sucesso!');
+    },
+    undefined,
+    (err) => {
+        // Erro: fallback para cor
+        console.warn('❌ Erro ao carregar fundo:', err);
+        scene.background = new THREE.Color(0x0a0a2a); // azul escuro
+    }
+);
+// Se a textura já estiver carregada no cache, define imediatamente
+if (bgTexture.image) {
+    scene.background = bgTexture;
+}
 
 // =========================
 // STREET VIEW (IFRAME)
@@ -146,12 +167,21 @@ function abrirStreetViewIframe(lat, lng) {
 // =========================
 // ROTA (IFRAME)
 // =========================
-function abrirRotaIframe(origem, destino) {
+function abrirRotaIframe(origem, destino, modo = "carro") {
   const apiKey = "AIzaSyCSP5XJE4ukwdTR1ca-QILJ5xZsThikzQc";
   console.log(`🌍 Abrindo iframe de rota de ${origem} para ${destino}`);
-  
-  // Monta a URL com as coordenadas
-  const url = `https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${origem}&destination=${destino}`;
+
+     const modeMap = {
+        "carro": "driving",
+        "ônibus": "transit",
+        "transporte público": "transit",
+        "avião": "flying", 
+        "a pé": "walking",
+        "bicicleta": "bicycling"
+    };
+    const mode = modeMap[modo] || "driving";
+    const url = `https://www.google.com/maps/embed/v1/directions?key=${API_KEY}&origin=${origem}&destination=${destino}&mode=${mode}`;;
+    
 
   // Remove iframe antigo se existir
   const old = document.getElementById("rota-iframe");
@@ -267,74 +297,6 @@ window.addEventListener("click", (event) => {
   }, DUPLO_CLIQUE_INTERVALO);
 });
 
-// ==========================================
-// MAPA AUXILIAR COM CAMADA DE COBERTURA
-// ==========================================
-
-let miniMapa = null;
-let coberturaAtiva = false;
-
-function ativarMapaCobertura() {
-  const container = document.getElementById('mapa-cobertura');
-  const miniMapaDiv = document.getElementById('mini-mapa');
-  
-  if (!miniMapa && window.google && google.maps) {
-    // Cria o mapa auxiliar
-    miniMapa = new google.maps.Map(miniMapaDiv, {
-      center: { lat: -15.7942, lng: -47.8822 }, // Brasil como centro inicial
-      zoom: 4,
-      disableDefaultUI: true, // remove todos os controles
-      gestureHandling: 'greedy', // permite arrastar
-      backgroundColor: 'transparent'
-    });
-    
-    // ADICIONA A CAMADA DE COBERTURA (LINHAS AZUIS DO STREET VIEW)
-    const streetViewLayer = new google.maps.StreetViewCoverageLayer();
-    streetViewLayer.setMap(miniMapa);
-    
-    console.log("✅ Camada de cobertura Street View ativada no mapa auxiliar");
-  }
-  
-  container.classList.add('visivel');
-  coberturaAtiva = true;
-}
-
-function desativarMapaCobertura() {
-  const container = document.getElementById('mapa-cobertura');
-  container.classList.remove('visivel');
-  coberturaAtiva = false;
-}
-
-// Botões para controlar o mapa de cobertura
-document.getElementById('fechar-cobertura').addEventListener('click', () => {
-  desativarMapaCobertura();
-});
-
-// Opcional: botão para ativar (você pode criar um botão no canto)
-// Se quiser um botão para mostrar/esconder as linhas:
-const btnMostrarCobertura = document.createElement('button');
-btnMostrarCobertura.innerText = '🗺️ Ver ruas com Street View';
-btnMostrarCobertura.style.position = 'fixed';
-btnMostrarCobertura.style.bottom = '20px';
-btnMostrarCobertura.style.left = '20px';
-btnMostrarCobertura.style.zIndex = '201';
-btnMostrarCobertura.style.padding = '8px 12px';
-btnMostrarCobertura.style.background = '#4285f4';
-btnMostrarCobertura.style.color = 'white';
-btnMostrarCobertura.style.border = 'none';
-btnMostrarCobertura.style.borderRadius = '8px';
-btnMostrarCobertura.style.cursor = 'pointer';
-btnMostrarCobertura.style.fontSize = '12px';
-btnMostrarCobertura.style.fontWeight = 'bold';
-btnMostrarCobertura.onclick = () => {
-  if (!coberturaAtiva) {
-    ativarMapaCobertura();
-  } else {
-    desativarMapaCobertura();
-  }
-};
-document.body.appendChild(btnMostrarCobertura);
-
 // =========================
 // COMUNICAÇÃO COM O SERVIDOR FLASK
 // =========================
@@ -368,19 +330,50 @@ function executarComando(acao, dados) {
             })
             .catch(err => console.error('Erro na geocodificação:', err));
     } else if (acao === 'rota') {
-        // Extrai a origem e o destino do comando recebido
         const partes = dados.param.split('|');
-        if (partes.length === 2) {
+        if (partes.length >= 2) {
             const origem = partes[0].trim();
             const destino = partes[1].trim();
-            // Chama a função que abre o iframe do Google Maps
-            abrirRotaIframe(origem, destino);
+            const modo = partes[2] ? partes[2].trim().toLowerCase() : "carro";
+            abrirRotaIframe(origem, destino, modo);
         } else {
             console.error('Formato de rota inválido:', dados.param);
             alert('❌ Não consegui entender a origem e destino.');
+        }
+    } else if (acao === 'emocao') {
+        const emocao = dados.emocao || 'NEUTRO';
+        console.log(`😊 Emoção recebida: ${emocao}`);
+        atualizarAvatar(emocao);
     }
 }
+
+function atualizarAvatar(emocao) {
+    // Mapeamento emoção -> caminho da imagem
+    const mapa = {
+        'FELIZ': 'LUNA AS VARIAS FACEIS DE MIM/feliz.png',
+        'TRISTE': 'LUNA AS VARIAS FACEIS DE MIM/triste.png',
+        'PENSATIVA': 'LUNA AS VARIAS FACEIS DE MIM/pensativa.png',
+        'BRAVA': 'LUNA AS VARIAS FACEIS DE MIM/brava.png',
+        'NEUTRO': 'LUNA AS VARIAS FACEIS DE MIM/neutro.png'
+    };
+    
+    const imgSrc = mapa[emocao] || mapa['NEUTRO'];
+    const avatarEl = document.getElementById('avatar-luna');
+    
+    if (avatarEl) {
+        // Pequena animação de fade (opcional)
+        avatarEl.style.transition = 'opacity 0.3s';
+        avatarEl.style.opacity = '0';
+        setTimeout(() => {
+            avatarEl.src = imgSrc;
+            avatarEl.style.opacity = '1';
+        }, 200);
+    } else {
+        console.warn('Elemento #avatar-luna não encontrado no HTML.');
+    }
 }
+
+
 
 // Polling: consulta o servidor a cada 2 segundos
 setInterval(buscarComando, 2000);

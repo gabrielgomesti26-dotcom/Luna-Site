@@ -8,28 +8,16 @@
       margin: 0;
       overflow: hidden;
     }
-    /* Estilo para o mini mapa (inicialmente invisível) */
-    #mapa-cobertura {
-      display: none; /* começa oculto */
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      width: 300px;
-      height: 300px;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      border: 2px solid rgba(255,255,255,0.5);
-      z-index: 200;
-      background: rgba(0,0,0,0.7);
-      transition: all 0.3s ease;
-    }
-    #mapa-cobertura.visivel {
-      display: block;
-    }
   </style>
 </head>
-<<<<<<< HEAD
+
+
+<!-- Avatar da Luna com emoções -->
+<div id="avatar-container" style="position: fixed; bottom: 480px; right: 20px; z-index: 1000;">
+    <img id="avatar-luna" src="LUNA AS VARIAS FACEIS DE MIM/neutro.png" alt="Luna" style="width: 120px; height: 120px; border-radius: 50%; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: all 0.3s ease;">
+</div>
+
 
 <!-- ========== CHAT FLUTUANTE ========== -->
 <style>
@@ -251,8 +239,6 @@ toggleChat.addEventListener('click', () => {
   }
 });
 </script>
-=======
->>>>>>> fc2c36a5dfba086a3373c4f265361db945609c83
 <body>
   <!-- Seu globo 3D será inserido aqui pelo Three.js -->
   
