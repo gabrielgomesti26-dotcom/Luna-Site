@@ -140,9 +140,6 @@ luna-assistant/
 🤝 Contribuição
 Sinta-se à vontade para fazer um fork, abrir issues ou enviar pull requests. Sugestões são sempre bem-vindas!
 
-📜 Licença
-Este projeto está sob a licença MIT – veja o arquivo LICENSE para mais detalhes.
-
 🙏 Agradecimentos
 Three.js – motor 3D.
 
